@@ -259,6 +259,8 @@ button:disabled {
 #image-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr); /* 5 columns */
+    /* 15枚の画像なので、5x3のグリッドになるように調整 */
+    grid-template-rows: repeat(3, 1fr); /* 3 rows */
     gap: 10px; /* Space between images */
     width: 100%;
     max-width: 800px; /* Adjust as needed */
@@ -315,6 +317,7 @@ button:disabled {
 @media (max-width: 768px) {
     #image-grid {
         grid-template-columns: repeat(3, 1fr); /* 3 columns on smaller screens */
+        grid-template-rows: repeat(5, 1fr); /* 5 rows for 15 images */
         max-width: 500px;
     }
 
@@ -332,6 +335,7 @@ button:disabled {
 @media (max-width: 480px) {
     #image-grid {
         grid-template-columns: repeat(2, 1fr); /* 2 columns on very small screens */
+        grid-template-rows: repeat(8, 1fr); /* 8 rows (for 15 images, last row 1 image) */
         max-width: 350px;
     }
 
