@@ -1,0 +1,100 @@
+[
+  {
+    "id": "q1",
+    "image": "301.png",
+    "back": "b301.png",
+    "A": "Hello.",
+    "B": "Hello."
+  },
+  {
+    "id": "q2",
+    "image": "302.png",
+    "back": "b302.png",
+    "A": "I'm Sachiko.",
+    "B": "I'm John."
+  },
+  {
+    "id": "q3",
+    "image": "303.png",
+    "back": "b303.png",
+    "A": "Nice to meet you.",
+    "B": "Nice to meet you ,too."
+  },
+  {
+    "id": "q4",
+    "image": "304.png",
+    "back": "b304.png",
+    "A": "How are you?",
+    "B": "I'm fine."
+  },
+  {
+    "id": "q5",
+    "image": "305.png",
+    "back": "b305.png",
+    "A": "Do you like sports?",
+    "B": "Yes,I do."
+  },
+  {
+    "id": "q6",
+    "image": "306.png",
+    "back": "b306.png",
+    "A": "What sports do you like?",
+    "B": "I like soccer."
+  },
+  {
+    "id": "q7",
+    "image": "307.png",
+    "back": "b307.png",
+    "A": "What's this?",
+    "B": "It's a banana."
+  },
+  {
+    "id": "q8",
+    "image": "308.png",
+    "back": "b308.png",
+    "A": "How many bananas?",
+    "B": "Two bananas."
+  },
+  {
+    "id": "q9",
+    "image": "309.png",
+    "back": "b309.png",
+    "A": "Do you have a dog?",
+    "B": "No,I don't."
+  },
+  {
+    "id": "q10",
+    "image": "310.png",
+    "back": "b310.png",
+    "A": "Do you want a dog?",
+    "B": "Yes,I do."
+  },
+  {
+    "id": "q11",
+    "image": "311.png",
+    "back": "b311.png",
+    "A": "What do you want?",
+    "B": "Vanilla,please."
+  },
+  {
+    "id": "q12",
+    "image": "312.png",
+    "back": "b312.png",
+    "A": "This is for you. \nHere you are.",
+    "B": "Thank you."
+  },
+  {
+    "id": "q13",
+    "image": "313.png",
+    "back": "b313.png",
+    "A": "Who are you?",
+    "B": "I'm a monkey."
+  },
+  {
+    "id": "q14",
+    "image": "314.png",
+    "back": "b314.png",
+    "A": "Bye.",
+    "B": "Bye."
+  }
+]

@@ -1,0 +1,93 @@
+[
+  {
+    "id": "q1",
+    "image": "401.png",
+    "back": "b401.png",
+    "A": "What's your name?",
+    "B": "I'm John."
+  },
+  {
+    "id": "q2",
+    "image": "402.png",
+    "back": "b402.png",
+    "A": "How is the weather?",
+    "B": "It's sunny."
+  },
+  {
+    "id": "q3",
+    "image": "403.png",
+    "back": "b403.png",
+    "A": "What time is it?",
+    "B": "It's ten o'clock."
+  },
+  {
+    "id": "q4",
+    "image": "404.png",
+    "back": "b404.png",
+    "A": "Let's play soccer.",
+    "B": "Yes,let's."
+  },
+  {
+    "id": "q5",
+    "image": "405.png",
+    "back": "b405.png",
+    "A": "What day is it?",
+    "B": "It's Wednesday."
+  },
+  {
+    "id": "q6",
+    "image": "406.png",
+    "back": "b406.png",
+    "A": "Do you like Friday?",
+    "B": "Yes,I do."
+  },
+  {
+    "id": "q7",
+    "image": "407.png",
+    "back": "b407.png",
+    "A": "Why?",
+    "B": "Because I have English class."
+  },
+  {
+    "id": "q8",
+    "image": "408.png",
+    "back": "b408.png",
+    "A": "What day do you like(the best)?",
+    "B": "I  like Sunday."
+  },
+  {
+    "id": "q9",
+    "image": "409.png",
+    "back": "b409.png",
+    "A": "Do you have a basketball?",
+    "B": "No,I don't."
+  },
+  {
+    "id": "q10",
+    "image": "410.png",
+    "back": "b410.png",
+    "A": "Do you want a basketball?",
+    "B": "Yes,I do."
+  },
+  {
+    "id": "q11",
+    "image": "411.png",
+    "back": "b411.png",
+    "A": "What's your favorite season?",
+    "B": "My favorite season is spring."
+  },
+  {
+    "id": "q12",
+    "image": "412.png",
+    "back": "b412.png",
+    "A": "Why?",
+    "B": "Because It's warm."
+  },
+  {
+    "id": "q13",
+    "image": "413.png",
+    "back": "b413.png",
+    "A": "This is my favorite place.",
+    "B": "I like the gym."
+  }
+]
