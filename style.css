@@ -256,11 +256,12 @@ button:disabled {
     color: #333;
 }
 
-#image-grid {
+/* 【修正】#image-gridセレクタを#quizと#karuta-game内の両方に対応できるように変更 */
+#quiz #image-grid,
+#karuta-game #image-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr); /* 5 columns */
-    /* 15枚の画像なので、5x3のグリッドになるように調整 */
-    grid-template-rows: repeat(3, 1fr); /* 3 rows */
+    /* 【修正】grid-template-rowsを削除して画像の高さに依存するように変更 */
     gap: 10px; /* Space between images */
     width: 100%;
     max-width: 800px; /* Adjust as needed */
@@ -273,14 +274,15 @@ button:disabled {
     padding-bottom: 100%; /* For square aspect ratio */
     overflow: hidden;
     cursor: pointer;
-    border: 2px solid transparent; /* For highlighting */
+    border: 3px solid transparent; /* For highlighting */
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    transition: all 0.3s ease;
 }
 
 .karuta-image-container:hover {
     transform: translateY(-3px);
+    border-color: #bdc3c7;
 }
 
 .karuta-image {
@@ -299,8 +301,24 @@ button:disabled {
 }
 
 .karuta-image-container.incorrect {
+    animation: shake 0.5s;
     border-color: #e74c3c;
 }
+
+@keyframes shake {
+  0%, 100% {transform: translateX(0);}
+  25% {transform: translateX(-5px);}
+  75% {transform: translateX(5px);}
+}
+
+
+/* 【追加】通常モードで現在の問題の画像をハイライトするスタイル */
+.karuta-image-container.active {
+    border-color: #3498db;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+}
+
 
 /* Adjust button group margin for karuta game */
 #karuta-game .button-group {
@@ -315,9 +333,9 @@ button:disabled {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    #image-grid {
+    #quiz #image-grid,
+    #karuta-game #image-grid {
         grid-template-columns: repeat(3, 1fr); /* 3 columns on smaller screens */
-        grid-template-rows: repeat(5, 1fr); /* 5 rows for 15 images */
         max-width: 500px;
     }
 
@@ -333,9 +351,9 @@ button:disabled {
 }
 
 @media (max-width: 480px) {
-    #image-grid {
+    #quiz #image-grid,
+    #karuta-game #image-grid {
         grid-template-columns: repeat(2, 1fr); /* 2 columns on very small screens */
-        grid-template-rows: repeat(8, 1fr); /* 8 rows (for 15 images, last row 1 image) */
         max-width: 350px;
     }
 
