@@ -1,109 +1,335 @@
 document.addEventListener("DOMContentLoaded", () => {
+    // 日付の初期設定
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     document.getElementById("test-date").value = `${yyyy}-${mm}-${dd}`;
 
+    // 音声の読み込み
     loadVoices();
     if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
     }
-
-    document.getElementById("mode").addEventListener("change", (event) => {
-        const normalModeElements = document.querySelectorAll(".normal-mode-only");
-        if (event.target.value === "normal") {
-            normalModeElements.forEach(el => el.style.display = "flex");
-        } else {
-            normalModeElements.forEach(el => el.style.display = "none");
-        }
-    });
-
-    // Initialize display based on default mode
-    const initialMode = document.getElementById("mode").value;
-    const normalModeElements = document.querySelectorAll(".normal-mode-only");
-    if (initialMode === "normal") {
-        normalModeElements.forEach(el => el.style.display = "flex");
-    } else {
-        normalModeElements.forEach(el => el.style.display = "none");
-    }
 });
 
-let questions = []; // 問題データ
-let currentQuestionIndex = 0; // 現在の問題インデックス
-let correct = 0; // 正解数 (通常モード用)
-let missed = []; // 間違えた問題 (通常モード用)
+// --- グローバル変数 ---
+let allQuestions = []; // 選択されたセットの全問題
+let availableQuestions = []; // まだ正解していない問題
+let imageElements = []; // 表示されている画像要素の配列
+let currentQuestion = null; // 現在読み上げられている問題
 let selectedVoice = null; // 選択された音声
-let speechUtterance = null; // SpeechSynthesisUtterance オブジェクトを保持
-let levelDelay = 2000; // レベルに応じた遅延時間 (ミリ秒)
-let gameMode = "normal"; // 現在のモード
+let speechUtterance = null; // SpeechSynthesisUtteranceオブジェクト
+let gameMode = "normal"; // 現在のゲームモード
+let startTime; // ゲーム開始時間
+let timerInterval; // タイマーのInterval ID
+let totalTime = 0; // ゲームの合計時間
 
-// Karuta specific variables
-let karutaImages = []; // Array to hold references to image elements
-let currentKarutaQuestion = null; // The question whose A sound is currently playing
-let startTime; // To store the start time of the game
-let timerInterval; // To store the interval for the timer
-let availableQuestions = []; // Questions that haven't been "removed" yet
-let totalTime = 0; // To store the final game time (for Karuta mode)
-let correctSound = new Audio('sounds/pinpon.mp3'); // Preload sounds
-let incorrectSound = new Audio('sounds/bu.mp3');
-
+// --- 音声関連 ---
 function loadVoices() {
     const voices = speechSynthesis.getVoices();
     const voiceSelect = document.getElementById("voice-select");
-    voiceSelect.innerHTML = ''; // Clear existing options
-
-    // 英語の音声のみをフィルタリングして表示
+    voiceSelect.innerHTML = '';
     const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
 
     if (englishVoices.length === 0) {
-        let option = document.createElement("option");
-        option.textContent = "英語の音声がありません";
-        option.value = "";
-        voiceSelect.appendChild(option);
+        voiceSelect.innerHTML = '<option value="">英語の音声がありません</option>';
         return;
     }
 
-    // 特定の英語の声を優先的に選択 (例: Google US English, Microsoft David)
-    const preferredVoices = [
-        "Google US English",
-        "Microsoft David - English (United States)",
-        "Microsoft Zira - English (United States)",
-        "Samantha", // iOS Safari often has Samantha
-        "Alex" // macOS Safari often has Alex
-    ];
+    const preferredVoices = ["Google US English", "Microsoft David - English (United States)", "Samantha"];
+    let defaultSelected = false;
 
-    let defaultOptionSelected = false;
-    for (let preferredName of preferredVoices) {
-        const foundVoice = englishVoices.find(voice => voice.name === preferredName);
-        if (foundVoice) {
-            let option = document.createElement("option");
-            option.textContent = `${foundVoice.name} (${foundVoice.lang})`;
-            option.value = foundVoice.name;
-            voiceSelect.appendChild(option);
-            if (!defaultOptionSelected) {
-                voiceSelect.value = foundVoice.name;
-                defaultOptionSelected = true;
-            }
-        }
-    }
-
-    // 残りの英語の声をアルファベット順に追加
-    englishVoices.sort((a, b) => a.name.localeCompare(b.name)).forEach(voice => {
-        if (!preferredVoices.includes(voice.name)) {
-            let option = document.createElement("option");
-            option.textContent = `${voice.name} (${voice.lang})`;
-            option.value = voice.name;
-            voiceSelect.appendChild(option);
+    englishVoices.forEach(voice => {
+        let option = document.createElement("option");
+        option.textContent = `${voice.name} (${voice.lang})`;
+        option.value = voice.name;
+        voiceSelect.appendChild(option);
+        if (preferredVoices.includes(voice.name) && !defaultSelected) {
+            voiceSelect.value = voice.name;
+            defaultSelected = true;
         }
     });
 
-    // If no preferred voice was found, just select the first available English voice
-    if (!defaultOptionSelected && englishVoices.length > 0) {
+    if (!defaultSelected) {
         voiceSelect.value = englishVoices[0].name;
     }
 }
 
+function speak(textA, textB, callback = () => {}) {
+    if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+    }
+    // Aを再生
+    const utteranceA = new SpeechSynthesisUtterance(textA);
+    utteranceA.voice = selectedVoice;
+    utteranceA.rate = 0.9;
+    utteranceA.onend = () => {
+        // Aの再生が終わったらすぐにBを再生
+        if (textB) {
+            const utteranceB = new SpeechSynthesisUtterance(textB);
+            utteranceB.voice = selectedVoice;
+            utteranceB.rate = 0.9;
+            utteranceB.onend = callback;
+            speechSynthesis.speak(utteranceB);
+        } else {
+            callback();
+        }
+    };
+    speechSynthesis.speak(utteranceA);
+}
+
+// --- 画面遷移とゲーム設定 ---
+async function startGame() {
+    const gradeSet = document.getElementById("grade-set").value;
+    gameMode = document.getElementById("mode").value;
+    selectedVoice = speechSynthesis.getVoices().find(v => v.name === document.getElementById("voice-select").value);
+
+    if (!gradeSet) {
+        await showCustomModal("学年とセットを選んでください");
+        return;
+    }
+    if (!selectedVoice) {
+        await showCustomModal("英語の音声が利用できません。ブラウザの設定を確認してください。");
+        return;
+    }
+
+    try {
+        const response = await fetch(`data/${gradeSet}.json`);
+        if (!response.ok) throw new Error(`Failed to load ${gradeSet}.json`);
+        const data = await response.json();
+        allQuestions = data;
+        initializeGameScreen();
+    } catch (error) {
+        console.error("データの読み込みエラー:", error);
+        await showCustomModal(`問題データの読み込みに失敗しました: ${error.message}`);
+    }
+}
+
+function initializeGameScreen() {
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("game-screen").style.display = "flex";
+    document.getElementById("timer").textContent = "0:00";
+    document.getElementById("start-button").disabled = false;
+    document.getElementById("repeat-button").disabled = true;
+
+    const imageGrid = document.getElementById("image-grid");
+    imageGrid.innerHTML = '';
+    imageElements = [];
+
+    // モードによって画像の表示順を決定
+    const displayQuestions = (gameMode === 'random') ? [...allQuestions].sort(() => Math.random() - 0.5) : [...allQuestions];
+
+    displayQuestions.forEach(q => {
+        const imgContainer = document.createElement("div");
+        imgContainer.classList.add("karuta-image-container");
+        imgContainer.dataset.id = q.id;
+        imgContainer.style.visibility = 'visible'; // 初期表示はvisible
+
+        const img = document.createElement("img");
+        img.src = `images/${q.image}`;
+        img.alt = q.A;
+        img.classList.add("karuta-image");
+
+        imgContainer.appendChild(img);
+        imageGrid.appendChild(imgContainer);
+        imageElements.push(imgContainer);
+
+        // クリックイベントはゲーム開始時に設定
+        imgContainer.onclick = null;
+    });
+}
+
+function returnToMenu() {
+    location.reload(); // 簡単にするためリロードで対応
+}
+
+// --- ゲームロジック ---
+function startGameLogic() {
+    document.getElementById("start-button").disabled = true;
+    document.getElementById("repeat-button").disabled = false;
+
+    availableQuestions = [...allQuestions];
+    startTime = new Date().getTime();
+    timerInterval = setInterval(updateTimer, 1000);
+
+    // 画像にクリックイベントを設定
+    imageElements.forEach(imgContainer => {
+        imgContainer.onclick = () => handleImageClick(imgContainer);
+    });
+
+    playNextQuestion();
+}
+
+function updateTimer() {
+    const now = new Date().getTime();
+    const elapsed = now - startTime;
+    const minutes = Math.floor(elapsed / (1000 * 60));
+    const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
+    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function playNextQuestion() {
+    if (availableQuestions.length === 0) {
+        endGame();
+        return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+    currentQuestion = availableQuestions[randomIndex];
+    speak(currentQuestion.A, currentQuestion.B);
+}
+
+function repeatSound() {
+    if (currentQuestion) {
+        speak(currentQuestion.A, currentQuestion.B);
+    }
+}
+
+function handleImageClick(clickedContainer) {
+    if (!currentQuestion || clickedContainer.style.visibility === 'hidden') return;
+
+    if (clickedContainer.dataset.id === currentQuestion.id) {
+        // 正解
+        new Audio('sounds/pinpon.mp3').play();
+        clickedContainer.classList.add('correct-highlight');
+
+        // ハイライトを見せてから消す
+        setTimeout(() => {
+            clickedContainer.style.visibility = 'hidden';
+            clickedContainer.classList.remove('correct-highlight');
+
+            availableQuestions = availableQuestions.filter(q => q.id !== currentQuestion.id);
+            
+            if (availableQuestions.length > 0) {
+                playNextQuestion();
+            } else {
+                endGame();
+            }
+        }, 500); // 0.5秒ハイライト
+
+    } else {
+        // 不正解
+        new Audio('sounds/bu.mp3').play();
+        clickedContainer.classList.add('incorrect-shake');
+        setTimeout(() => {
+            clickedContainer.classList.remove('incorrect-shake');
+        }, 400);
+    }
+}
+
+async function quitGame() {
+    const confirmQuit = await showCustomModal("ゲームを中断してメニューに戻りますか？", true);
+    if (confirmQuit) {
+        clearInterval(timerInterval);
+        if (speechSynthesis.speaking) {
+            speechSynthesis.cancel();
+        }
+        returnToMenu();
+    }
+}
+
+function endGame() {
+    clearInterval(timerInterval);
+    if (startTime) {
+        totalTime = new Date().getTime() - startTime;
+    }
+    if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+    }
+
+    document.getElementById("game-screen").style.display = "none";
+    document.getElementById("result").style.display = "flex";
+
+    const minutes = Math.floor(totalTime / (1000 * 60));
+    const seconds = Math.floor((totalTime % (1000 * 60)) / 1000);
+    document.getElementById("final-time").textContent = `タイム: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    displayResultTable();
+}
+
+// --- 結果と履歴 ---
+function displayResultTable() {
+    const history = JSON.parse(localStorage.getItem("englishTestHistory") || "[]");
+    const currentResult = {
+        date: document.getElementById("test-date").value,
+        gradeSet: document.getElementById("grade-set").options[document.getElementById("grade-set").selectedIndex].text,
+        mode: document.getElementById("mode").options[document.getElementById("mode").selectedIndex].text,
+        time: totalTime
+    };
+
+    const sortedHistory = [...history, currentResult].sort((a, b) => a.time - b.time);
+    const top5 = sortedHistory.slice(0, 5);
+
+    let html = `
+        <table border="1">
+            <tr><th>順位</th><th>実施日</th><th>学年</th><th>モード</th><th>タイム</th></tr>`;
+
+    if (top5.length === 0) {
+        html += `<tr><td colspan="5">まだ記録がありません。</td></tr>`;
+    } else {
+        top5.forEach((h, index) => {
+            const minutes = Math.floor(h.time / (1000 * 60));
+            const seconds = Math.floor((h.time % (1000 * 60)) / 1000);
+            const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            html += `<tr>
+                <td>${index + 1}</td>
+                <td>${h.date}</td>
+                <td>${h.gradeSet}</td>
+                <td>${h.mode}</td>
+                <td>${formattedTime}</td>
+            </tr>`;
+        });
+    }
+    html += "</table>";
+    document.getElementById("result-table-container").innerHTML = html;
+}
+
+async function saveResult() {
+    const history = JSON.parse(localStorage.getItem("englishTestHistory") || "[]");
+    const currentResult = {
+        date: document.getElementById("test-date").value,
+        gradeSet: document.getElementById("grade-set").options[document.getElementById("grade-set").selectedIndex].text,
+        mode: document.getElementById("mode").options[document.getElementById("mode").selectedIndex].text,
+        time: totalTime
+    };
+    history.push(currentResult);
+    localStorage.setItem("englishTestHistory", JSON.stringify(history));
+    await showCustomModal("記録を保存しました");
+}
+
+function showHistory() {
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("history").style.display = "flex";
+    const history = JSON.parse(localStorage.getItem("englishTestHistory") || "[]");
+    const area = document.getElementById("history-list-table");
+
+    if (!history.length) {
+        area.innerHTML = "<p>まだ記録がありません。</p>";
+        return;
+    }
+
+    history.sort((a, b) => a.time - b.time); // タイムが短い順にソート
+    const top10 = history.slice(0, 10);
+
+    let html = `<table border="1"><tr><th>順位</th><th>実施日</th><th>学年</th><th>モード</th><th>タイム</th></tr>`;
+    top10.forEach((h, index) => {
+        const minutes = Math.floor(h.time / (1000 * 60));
+        const seconds = Math.floor((h.time % (1000 * 60)) / 1000);
+        const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        html += `<tr>
+            <td>${index + 1}</td>
+            <td>${h.date}</td>
+            <td>${h.gradeSet}</td>
+            <td>${h.mode}</td>
+            <td>${formattedTime}</td>
+        </tr>`;
+    });
+    html += "</table>";
+    area.innerHTML = html;
+}
+
+// --- モーダル ---
 async function showCustomModal(message, showCancel = false) {
     const modal = document.getElementById("modal");
     const modalMessage = document.getElementById("modal-message");
@@ -112,8 +338,7 @@ async function showCustomModal(message, showCancel = false) {
 
     modalMessage.textContent = message;
     modalCancel.style.display = showCancel ? "inline-block" : "none";
-
-    modal.style.display = "flex"; // Flex to center content
+    modal.style.display = "flex";
 
     return new Promise((resolve) => {
         modalOk.onclick = () => {
@@ -125,480 +350,4 @@ async function showCustomModal(message, showCancel = false) {
             resolve(false);
         };
     });
-}
-
-function speak(text, callback = () => {}) {
-    if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
-    }
-    speechUtterance = new SpeechSynthesisUtterance(text);
-    speechUtterance.voice = selectedVoice;
-    speechUtterance.rate = 0.8; // Adjust speed if needed
-    speechUtterance.onend = callback;
-    speechSynthesis.speak(speechUtterance);
-}
-
-async function startGame() { // Renamed from startTest
-    gameMode = document.getElementById("mode").value; // Get the selected mode
-
-    if (gameMode === 'normal') {
-        const saved = JSON.parse(localStorage.getItem("englishTestProgress"));
-        if (saved) {
-            const confirmResume = await showCustomModal("前回の途中から再開しますか？", true);
-            if (confirmResume) {
-                loadSavedProgress(saved);
-                return;
-            } else {
-                localStorage.removeItem("englishTestProgress");
-            }
-        }
-
-        const gradeSet = document.getElementById("grade-set").value;
-        const level = document.getElementById("level").value;
-        const voiceSelect = document.getElementById("voice-select");
-        selectedVoice = speechSynthesis.getVoices().find(v => v.name === voiceSelect.value);
-
-        // レベルに応じた遅延時間を設定
-        switch (level) {
-            case 'easy': levelDelay = 3000; break;
-            case 'normal': levelDelay = 2000; break;
-            case 'hard': levelDelay = 1000; break;
-        }
-
-        if (!gradeSet) {
-            await showCustomModal("学年とセットを選んでください");
-            return;
-        }
-        if (!selectedVoice) {
-            await showCustomModal("英語の音声が利用できません。ブラウザの設定を確認してください。");
-            return;
-        }
-
-        fetch(`data/${gradeSet}.json`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Failed to load ${gradeSet}.json: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                questions = data;
-                currentQuestionIndex = 0;
-                correct = 0;
-                missed = [];
-                document.getElementById("setup").style.display = "none";
-                document.getElementById("quiz").style.display = "flex";
-                document.getElementById("result").style.display = "none";
-                // 【追加】通常モードの画像グリッドを表示
-                displayNormalModeGrid(questions);
-                showQuestion();
-            })
-            .catch(error => {
-                console.error("データの読み込みエラー:", error);
-                showCustomModal(`問題データの読み込みに失敗しました: ${error.message}`);
-            });
-
-    } else if (gameMode === 'random') { // かるたモード
-        const gradeSet = document.getElementById("grade-set").value;
-        if (!gradeSet) {
-            await showCustomModal("学年とセットを選んでください");
-            return;
-        }
-        selectedVoice = speechSynthesis.getVoices().find(v => v.name === document.getElementById("voice-select").value);
-        if (!selectedVoice) {
-            await showCustomModal("英語の音声が利用できません。ブラウザの設定を確認してください。");
-            return;
-        }
-
-        fetch(`data/${gradeSet}.json`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Failed to load ${gradeSet}.json: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                questions = data; // All questions for the selected grade
-                availableQuestions = [...questions]; // Copy all questions to available
-                document.getElementById("setup").style.display = "none";
-                document.getElementById("karuta-game").style.display = "flex"; // Show karuta game screen
-                initializeKarutaGame();
-            })
-            .catch(error => {
-                console.error("データの読み込みエラー:", error);
-                showCustomModal(`問題データの読み込みに失敗しました: ${error.message}`);
-            });
-    }
-}
-
-// 【追加】通常モードで画像グリッドを表示する関数
-function displayNormalModeGrid(questionsData) {
-    const imageGrid = document.querySelector("#quiz #image-grid");
-    imageGrid.innerHTML = '';
-
-    questionsData.forEach(q => {
-        const imgContainer = document.createElement("div");
-        imgContainer.classList.add("karuta-image-container");
-        imgContainer.dataset.id = q.id; // idで後から特定できるように
-
-        const img = document.createElement("img");
-        img.src = `images/${q.image}`;
-        img.alt = q.A;
-        img.classList.add("karuta-image");
-
-        imgContainer.appendChild(img);
-        imageGrid.appendChild(imgContainer);
-    });
-}
-
-// 【追加】通常モードで現在の問題の画像をハイライトする関数
-function highlightCurrentImage() {
-    const imageGrid = document.querySelector("#quiz #image-grid");
-    if (!imageGrid) return;
-
-    // すべてのハイライトを解除
-    imageGrid.querySelectorAll('.karuta-image-container').forEach(el => {
-        el.classList.remove('active');
-    });
-
-    // 現在の問題に対応する画像コンテナを探してハイライト
-    if (currentQuestionIndex < questions.length) {
-        const currentId = questions[currentQuestionIndex].id;
-        const currentImageContainer = imageGrid.querySelector(`[data-id='${currentId}']`);
-        if (currentImageContainer) {
-            currentImageContainer.classList.add('active');
-        }
-    }
-}
-
-
-// Normal Mode Functions (existing)
-function showQuestion() {
-    if (currentQuestionIndex < questions.length) {
-        document.getElementById("progress").textContent = `問題 ${currentQuestionIndex + 1} / ${questions.length}`;
-        document.getElementById("current-question").textContent = questions[currentQuestionIndex].B;
-        // 【追加】現在の問題の画像をハイライト
-        highlightCurrentImage();
-        // 最初は通常モードでAを話す
-        showNormalMode();
-    } else {
-        endTest();
-    }
-}
-
-function showNormalMode() {
-    speak(questions[currentQuestionIndex].A, () => {
-        setTimeout(() => speak(questions[currentQuestionIndex].B), levelDelay);
-    });
-}
-
-function showASpeechMode() {
-    speak(questions[currentQuestionIndex].A);
-}
-
-function showBSpeechMode() {
-    speak(questions[currentQuestionIndex].B);
-}
-
-function answer(isCorrect) {
-    if (isCorrect) {
-        correct++;
-    } else {
-        missed.push(questions[currentQuestionIndex]);
-    }
-    currentQuestionIndex++;
-    saveProgress(); // Progress saved after each answer
-    showQuestion();
-}
-
-function interruptTest() {
-    if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
-    }
-    document.getElementById("quiz").style.display = "none";
-    document.getElementById("setup").style.display = "flex";
-    localStorage.removeItem("englishTestProgress"); // Clear progress on interruption
-}
-
-function endTest() {
-    if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
-    }
-    // 【追加】テスト終了時に画像グリッドをクリア
-    const imageGrid = document.querySelector("#quiz #image-grid");
-    if(imageGrid) imageGrid.innerHTML = "";
-
-    document.getElementById("quiz").style.display = "none";
-    document.getElementById("result").style.display = "block";
-    const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
-    document.getElementById("score").textContent = `点数: ${score}点`;
-
-    showCurrentResultTableNormal(score); // Display current result
-    // showMissedList(); // この関数は元のHTMLに要素がないためコメントアウト
-    localStorage.removeItem("englishTestProgress"); // Clear progress on completion
-}
-
-function showCurrentResultTableNormal(score) {
-    const date = document.getElementById("test-date").value;
-    const gradeSet = document.getElementById("grade-set").options[document.getElementById("grade-set").selectedIndex].text;
-    const mode = document.getElementById("mode").options[document.getElementById("mode").selectedIndex].text;
-
-    const html = `
-        <table border="1">
-            <tr><th>実施日</th><th>学年</th><th>モード</th><th>点数</th></tr>
-            <tr><td>${date}</td><td>${gradeSet}</td><td>${mode}</td><td>${score}点</td></tr>
-        </table>`;
-    document.getElementById("current-result-table").innerHTML = html;
-}
-
-function saveProgress() {
-    const progress = {
-        currentQuestionIndex,
-        correct,
-        missed,
-        gradeSet: document.getElementById("grade-set").value,
-        level: document.getElementById("level").value,
-        voiceName: document.getElementById("voice-select").value,
-        questions: questions // 保存時にも問題データ全体を保存
-    };
-    localStorage.setItem("englishTestProgress", JSON.stringify(progress));
-}
-
-function loadSavedProgress(saved) {
-    questions = saved.questions;
-    currentQuestionIndex = saved.currentQuestionIndex;
-    correct = saved.correct;
-    missed = saved.missed;
-    document.getElementById("grade-set").value = saved.gradeSet;
-    document.getElementById("level").value = saved.level;
-    document.getElementById("voice-select").value = saved.voiceName;
-    selectedVoice = speechSynthesis.getVoices().find(v => v.name === saved.voiceName);
-
-    document.getElementById("setup").style.display = "none";
-    document.getElementById("quiz").style.display = "flex";
-    document.getElementById("result").style.display = "none";
-    
-    // 【追加】再開時にも画像グリッドを表示
-    displayNormalModeGrid(questions);
-    showQuestion();
-}
-
-
-// Karuta Game Functions (newly added/modified)
-function initializeKarutaGame() {
-    // 【修正】かるたゲームのグリッドを正しく選択
-    const imageGrid = document.querySelector("#karuta-game #image-grid");
-    imageGrid.innerHTML = ''; // Clear any existing images
-    karutaImages = []; // Clear previous image references
-
-    // Shuffle questions to randomize initial display order
-    const shuffledQuestions = [...questions].sort(() => Math.random() - 0.5);
-
-    shuffledQuestions.forEach(q => {
-        const imgContainer = document.createElement("div");
-        imgContainer.classList.add("karuta-image-container");
-        imgContainer.dataset.id = q.id; // Assuming each question has a unique 'id'
-        imgContainer.dataset.image = q.image; // Store image path
-        imgContainer.dataset.A = q.A; // Store A text
-
-        const img = document.createElement("img");
-        img.src = `images/${q.image}`;
-        img.alt = q.A; // Alt text for accessibility
-        img.classList.add("karuta-image");
-
-        imgContainer.appendChild(img);
-        imageGrid.appendChild(imgContainer);
-        karutaImages.push(imgContainer); // Store reference
-    });
-
-    // Reset timer display
-    document.getElementById('timer').textContent = '0:00';
-    // Enable start button
-    document.querySelector('#karuta-game .button-group button:first-child').disabled = false;
-}
-
-async function startKarutaGame() {
-    // Disable the start button to prevent multiple clicks
-    document.querySelector('#karuta-game .button-group button:first-child').disabled = true;
-
-    startTime = new Date().getTime();
-    timerInterval = setInterval(updateTimer, 1000);
-
-    await playRandomKarutaSound();
-
-    // Attach event listeners to all images for clicking
-    karutaImages.forEach(imgContainer => {
-        // 【修正】display: 'block' から visibility: 'visible' へ
-        imgContainer.style.visibility = 'visible';
-        imgContainer.onclick = () => handleKarutaImageClick(imgContainer);
-    });
-}
-
-function updateTimer() {
-    const now = new Date().getTime();
-    const elapsed = now - startTime;
-    const minutes = Math.floor(elapsed / (1000 * 60));
-    const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
-    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-async function playRandomKarutaSound() {
-    if (availableQuestions.length === 0) {
-        endKarutaGame();
-        return;
-    }
-
-    // Pick a random question from the available ones
-    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
-    currentKarutaQuestion = availableQuestions[randomIndex];
-
-    // 【修正】Aを再生後、1.5秒待ってからBを再生
-    speak(currentKarutaQuestion.A, () => {
-        setTimeout(() => {
-            // 中断などでcurrentKarutaQuestionがnullになっていないか確認
-            if (currentKarutaQuestion) {
-                speak(currentKarutaQuestion.B);
-            }
-        }, 1500);
-    });
-}
-
-async function handleKarutaImageClick(clickedImageContainer) {
-    if (!currentKarutaQuestion) return; // No sound playing yet
-
-    const clickedImageId = clickedImageContainer.dataset.id;
-    const correctImageId = currentKarutaQuestion.id;
-
-    if (clickedImageId === correctImageId) {
-        // Correct answer
-        correctSound.play();
-        // 【修正】display: 'none' から visibility: 'hidden' へ変更し、レイアウトを維持
-        clickedImageContainer.style.visibility = 'hidden';
-
-        // Remove the question from availableQuestions
-        availableQuestions = availableQuestions.filter(q => q.id !== correctImageId);
-
-        if (availableQuestions.length > 0) {
-            // Play the next random sound after a short delay
-            setTimeout(() => {
-                playRandomKarutaSound();
-            }, 500); // Small delay before next sound
-        } else {
-            endKarutaGame(); // All images found
-        }
-    } else {
-        // Incorrect answer
-        incorrectSound.play();
-        // Optional: Briefly highlight incorrect image
-        clickedImageContainer.classList.add('incorrect');
-        setTimeout(() => {
-            clickedImageContainer.classList.remove('incorrect');
-        }, 300);
-    }
-}
-
-function endKarutaGame() {
-    clearInterval(timerInterval);
-    if(startTime) {
-      totalTime = new Date().getTime() - startTime; // Time in milliseconds
-    }
-
-    document.getElementById("karuta-game").style.display = "none";
-    document.getElementById("result").style.display = "block";
-
-    const minutes = Math.floor(totalTime / (1000 * 60));
-    const seconds = Math.floor((totalTime % (1000 * 60)) / 1000);
-    document.getElementById("score").textContent = `タイム: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-    showCurrentResultTableKaruta(minutes, seconds); // Display current result
-}
-
-async function quitKarutaGame() {
-    const confirmQuit = await showCustomModal("やめてもいいですか？", true);
-    if (confirmQuit) {
-        clearInterval(timerInterval);
-        document.getElementById("karuta-game").style.display = "none";
-        document.getElementById("setup").style.display = "flex"; // Return to setup
-        localStorage.removeItem("englishTestProgress"); // Clear any partial progress
-        // Reset game state if needed
-        availableQuestions = [];
-        currentKarutaQuestion = null;
-        if (speechSynthesis.speaking) {
-            speechSynthesis.cancel();
-        }
-        // 【修正】display: 'block' から visibility: 'visible' へ変更
-        karutaImages.forEach(imgContainer => {
-            imgContainer.style.visibility = 'visible';
-        });
-    }
-}
-
-function showCurrentResultTableKaruta(minutes, seconds) {
-    const date = document.getElementById("test-date").value;
-    const gradeSet = document.getElementById("grade-set").options[document.getElementById("grade-set").selectedIndex].text;
-    const mode = document.getElementById("mode").options[document.getElementById("mode").selectedIndex].text;
-    const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-    const html = `
-        <table border="1">
-            <tr><th>実施日</th><th>学年</th><th>モード</th><th>タイム</th></tr>
-            <tr><td>${date}</td><td>${gradeSet}</td><td>${mode}</td><td>${formattedTime}</td></tr>
-        </table>`;
-    document.getElementById("current-result-table").innerHTML = html;
-}
-
-// Global functions modified for both modes
-async function saveResult() {
-    const date = document.getElementById("test-date").value;
-    const gradeSet = document.getElementById("grade-set").options[document.getElementById("grade-set").selectedIndex].text;
-    const mode = document.getElementById("mode").options[document.getElementById("mode").selectedIndex].text;
-    const history = JSON.parse(localStorage.getItem("englishTestHistory") || "[]");
-
-    if (gameMode === 'normal') {
-        const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
-        history.push({ date, gradeSet, mode, score, missed });
-    } else if (gameMode === 'random') { // Karuta mode
-        history.push({ date, gradeSet, mode, time: totalTime });
-    }
-
-    localStorage.setItem("englishTestHistory", JSON.stringify(history));
-    await showCustomModal("記録を保存しました");
-}
-
-function showHistory() {
-    document.getElementById("setup").style.display = "none";
-    document.getElementById("history").style.display = "block";
-    const history = JSON.parse(localStorage.getItem("englishTestHistory") || "[]");
-    const area = document.getElementById("history-list-table");
-
-    if (!history.length) {
-        area.innerHTML = "<p>まだ記録がありません。</p>";
-        return;
-    }
-
-    // Separate normal and karuta history
-    const normalHistory = history.filter(h => h.mode !== 'ランダムモード');
-    const karutaHistory = history.filter(h => h.mode === 'ランダムモード');
-
-    // Sort Karuta history by time (shortest first)
-    karutaHistory.sort((a, b) => a.time - b.time);
-
-    let html = "<table border='1'><tr><th>実施日</th><th>学年</th><th>モード</th><th>結果</th><th>詳細</th></tr>";
-
-    // Display normal history (latest first)
-    [...normalHistory].reverse().forEach(h => {
-        const missedItems = h.missed.map(item => `${item.A} / ${item.B}`).join(", ");
-        html += `<tr><td>${h.date}</td><td>${h.gradeSet}</td><td>${h.mode}</td><td>${h.score}点</td><td>${missedItems || '全問正解'}</td></tr>`;
-    });
-
-    // Display Karuta history (sorted by time)
-    karutaHistory.forEach(h => {
-        const minutes = Math.floor(h.time / (1000 * 60));
-        const seconds = Math.floor((h.time % (1000 * 60)) / 1000);
-        const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        html += `<tr><td>${h.date}</td><td>${h.gradeSet}</td><td>${h.mode}</td><td>${formattedTime}</td><td>全問正解</td></tr>`;
-    });
-
-    html += "</table>";
-    area.innerHTML = html;
 }
