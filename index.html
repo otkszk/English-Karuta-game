@@ -2,15 +2,15 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>英語かるた</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app">
-        <h1>英語かるた</h1>
-
+        <!-- 設定画面 -->
         <div id="setup" class="screen">
+            <h1>英語かるた</h1>
             <div class="setting-item">
                 <label for="test-date">実施日:</label>
                 <input type="date" id="test-date">
@@ -34,61 +34,46 @@
                     <option value="random">ランダムモード</option>
                 </select>
             </div>
-            <div class="setting-item normal-mode-only">
-                <label for="level">レベル:</label>
-                <select id="level">
-                    <option value="easy">かんたん</option>
-                    <option value="normal">ふつう</option>
-                    <option value="hard">むずかしい</option>
-                </select>
-            </div>
             <div class="button-group">
                 <button onclick="startGame()">テスト開始</button>
                 <button onclick="showHistory()">記録を見る</button>
             </div>
         </div>
 
-        <div id="quiz" class="screen" style="display:none;">
-            <p id="progress"></p>
-            <div id="image-grid"></div>
-            <div id="current-question"></div>
-            <div class="button-group">
-                <button onclick="showNormalMode()">通常モード</button>
-                <button onclick="showASpeechMode()">Aを話す</button>
-                <button onclick="showBSpeechMode()">Bを話す</button>
-            </div>
-            <div class="button-group">
-                <button onclick="answer(true)">できた</button>
-                <button onclick="answer(false)">できなかった</button>
-            </div>
-            <button onclick="interruptTest()">中断してメニューに戻る</button>
-        </div>
-
-        <div id="karuta-game" class="screen" style="display:none;">
-            <div id="timer">0:00</div>
-            <div id="image-grid">
+        <!-- ゲーム画面 (通常・ランダム共通) -->
+        <div id="game-screen" class="screen" style="display:none;">
+            <header class="game-header">
+                <div class="header-left">
+                    <button id="start-button" onclick="startGameLogic()">スタート</button>
+                    <button id="repeat-button" onclick="repeatSound()">リピート</button>
                 </div>
-            <div class="button-group">
-                <button onclick="startKarutaGame()">スタート</button>
-                <button onclick="quitKarutaGame()">中断してメニューに戻る</button>
-            </div>
+                <div id="timer">0:00</div>
+                <div class="header-right">
+                    <button id="quit-button" onclick="quitGame()">中断してメニューに戻る</button>
+                </div>
+            </header>
+            <div id="image-grid"></div>
         </div>
 
+        <!-- 結果画面 -->
         <div id="result" class="screen" style="display:none;">
-            <h2>結果</h2>
-            <p id="score"></p>
-            <div id="current-result-table"></div> <div class="button-group">
+            <header class="result-header">
                 <button onclick="saveResult()">記録を保存</button>
-                <button onclick="location.reload()">もう一度</button>
-            </div>
+                <h2>結果</h2>
+                <button onclick="returnToMenu()">メニューに戻る</button>
+            </header>
+            <p id="final-time">タイム: 0:00</p>
+            <div id="result-table-container"></div>
         </div>
 
+        <!-- 履歴画面 -->
         <div id="history" class="screen" style="display:none;">
             <h2>過去の記録</h2>
             <div id="history-list-table"></div>
-            <button onclick="location.reload()">戻る</button>
+            <button onclick="returnToMenu()">戻る</button>
         </div>
 
+        <!-- モーダルウィンドウ -->
         <div id="modal" class="modal">
             <div class="modal-content">
                 <p id="modal-message"></p>
