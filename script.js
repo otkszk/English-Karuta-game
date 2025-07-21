@@ -189,6 +189,8 @@ async function startGame() { // Renamed from startTest
                 document.getElementById("setup").style.display = "none";
                 document.getElementById("quiz").style.display = "flex";
                 document.getElementById("result").style.display = "none";
+                // 【追加】通常モードの画像グリッドを表示
+                displayNormalModeGrid(questions);
                 showQuestion();
             })
             .catch(error => {
@@ -229,12 +231,54 @@ async function startGame() { // Renamed from startTest
     }
 }
 
+// 【追加】通常モードで画像グリッドを表示する関数
+function displayNormalModeGrid(questionsData) {
+    const imageGrid = document.querySelector("#quiz #image-grid");
+    imageGrid.innerHTML = '';
+
+    questionsData.forEach(q => {
+        const imgContainer = document.createElement("div");
+        imgContainer.classList.add("karuta-image-container");
+        imgContainer.dataset.id = q.id; // idで後から特定できるように
+
+        const img = document.createElement("img");
+        img.src = `images/${q.image}`;
+        img.alt = q.A;
+        img.classList.add("karuta-image");
+
+        imgContainer.appendChild(img);
+        imageGrid.appendChild(imgContainer);
+    });
+}
+
+// 【追加】通常モードで現在の問題の画像をハイライトする関数
+function highlightCurrentImage() {
+    const imageGrid = document.querySelector("#quiz #image-grid");
+    if (!imageGrid) return;
+
+    // すべてのハイライトを解除
+    imageGrid.querySelectorAll('.karuta-image-container').forEach(el => {
+        el.classList.remove('active');
+    });
+
+    // 現在の問題に対応する画像コンテナを探してハイライト
+    if (currentQuestionIndex < questions.length) {
+        const currentId = questions[currentQuestionIndex].id;
+        const currentImageContainer = imageGrid.querySelector(`[data-id='${currentId}']`);
+        if (currentImageContainer) {
+            currentImageContainer.classList.add('active');
+        }
+    }
+}
+
 
 // Normal Mode Functions (existing)
 function showQuestion() {
     if (currentQuestionIndex < questions.length) {
         document.getElementById("progress").textContent = `問題 ${currentQuestionIndex + 1} / ${questions.length}`;
         document.getElementById("current-question").textContent = questions[currentQuestionIndex].B;
+        // 【追加】現在の問題の画像をハイライト
+        highlightCurrentImage();
         // 最初は通常モードでAを話す
         showNormalMode();
     } else {
@@ -280,37 +324,18 @@ function endTest() {
     if (speechSynthesis.speaking) {
         speechSynthesis.cancel();
     }
+    // 【追加】テスト終了時に画像グリッドをクリア
+    const imageGrid = document.querySelector("#quiz #image-grid");
+    if(imageGrid) imageGrid.innerHTML = "";
+
     document.getElementById("quiz").style.display = "none";
     document.getElementById("result").style.display = "block";
     const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
     document.getElementById("score").textContent = `点数: ${score}点`;
 
     showCurrentResultTableNormal(score); // Display current result
-    showMissedList(); // Display missed list
+    // showMissedList(); // この関数は元のHTMLに要素がないためコメントアウト
     localStorage.removeItem("englishTestProgress"); // Clear progress on completion
-}
-
-function showMissedList() {
-    const missedListDiv = document.getElementById("missed-list");
-    missedListDiv.innerHTML = ""; // Clear previous content
-
-    if (missed.length > 0) {
-        const missedTitle = document.createElement("h3");
-        missedTitle.textContent = "間違えた問題:";
-        missedListDiv.appendChild(missedTitle);
-
-        const ul = document.createElement("ul");
-        missed.forEach(item => {
-            const li = document.createElement("li");
-            li.innerHTML = `<span class="correct-answer">${item.A}</span> / <span class="missed-answer">${item.B}</span>`;
-            ul.appendChild(li);
-        });
-        missedListDiv.appendChild(ul);
-    } else {
-        const p = document.createElement("p");
-        p.textContent = "おめでとうございます！全問正解です！";
-        missedListDiv.appendChild(p);
-    }
 }
 
 function showCurrentResultTableNormal(score) {
@@ -352,13 +377,17 @@ function loadSavedProgress(saved) {
     document.getElementById("setup").style.display = "none";
     document.getElementById("quiz").style.display = "flex";
     document.getElementById("result").style.display = "none";
+    
+    // 【追加】再開時にも画像グリッドを表示
+    displayNormalModeGrid(questions);
     showQuestion();
 }
 
 
 // Karuta Game Functions (newly added/modified)
 function initializeKarutaGame() {
-    const imageGrid = document.getElementById("image-grid");
+    // 【修正】かるたゲームのグリッドを正しく選択
+    const imageGrid = document.querySelector("#karuta-game #image-grid");
     imageGrid.innerHTML = ''; // Clear any existing images
     karutaImages = []; // Clear previous image references
 
@@ -399,8 +428,8 @@ async function startKarutaGame() {
 
     // Attach event listeners to all images for clicking
     karutaImages.forEach(imgContainer => {
-        // Ensure image is visible if it was hidden from a previous game
-        imgContainer.style.display = 'block';
+        // 【修正】display: 'block' から visibility: 'visible' へ
+        imgContainer.style.visibility = 'visible';
         imgContainer.onclick = () => handleKarutaImageClick(imgContainer);
     });
 }
@@ -423,9 +452,14 @@ async function playRandomKarutaSound() {
     const randomIndex = Math.floor(Math.random() * availableQuestions.length);
     currentKarutaQuestion = availableQuestions[randomIndex];
 
-    // Play the A sound
+    // 【修正】Aを再生後、1.5秒待ってからBを再生
     speak(currentKarutaQuestion.A, () => {
-        // Callback when speech ends, no specific action needed here for Karuta
+        setTimeout(() => {
+            // 中断などでcurrentKarutaQuestionがnullになっていないか確認
+            if (currentKarutaQuestion) {
+                speak(currentKarutaQuestion.B);
+            }
+        }, 1500);
     });
 }
 
@@ -438,7 +472,8 @@ async function handleKarutaImageClick(clickedImageContainer) {
     if (clickedImageId === correctImageId) {
         // Correct answer
         correctSound.play();
-        clickedImageContainer.style.display = 'none'; // Hide the image
+        // 【修正】display: 'none' から visibility: 'hidden' へ変更し、レイアウトを維持
+        clickedImageContainer.style.visibility = 'hidden';
 
         // Remove the question from availableQuestions
         availableQuestions = availableQuestions.filter(q => q.id !== correctImageId);
@@ -464,7 +499,9 @@ async function handleKarutaImageClick(clickedImageContainer) {
 
 function endKarutaGame() {
     clearInterval(timerInterval);
-    totalTime = new Date().getTime() - startTime; // Time in milliseconds
+    if(startTime) {
+      totalTime = new Date().getTime() - startTime; // Time in milliseconds
+    }
 
     document.getElementById("karuta-game").style.display = "none";
     document.getElementById("result").style.display = "block";
@@ -474,9 +511,6 @@ function endKarutaGame() {
     document.getElementById("score").textContent = `タイム: ${minutes}:${seconds.toString().padStart(2, '0')}`;
 
     showCurrentResultTableKaruta(minutes, seconds); // Display current result
-    // Karuta mode doesn't have a missed list like normal mode, so hide/clear it if present
-    const missedListDiv = document.getElementById("missed-list");
-    if (missedListDiv) missedListDiv.innerHTML = "";
 }
 
 async function quitKarutaGame() {
@@ -492,9 +526,9 @@ async function quitKarutaGame() {
         if (speechSynthesis.speaking) {
             speechSynthesis.cancel();
         }
-        // Ensure all images are visible again if the user quits and then starts a new game
+        // 【修正】display: 'block' から visibility: 'visible' へ変更
         karutaImages.forEach(imgContainer => {
-            imgContainer.style.display = 'block';
+            imgContainer.style.visibility = 'visible';
         });
     }
 }
@@ -554,7 +588,7 @@ function showHistory() {
     // Display normal history (latest first)
     [...normalHistory].reverse().forEach(h => {
         const missedItems = h.missed.map(item => `${item.A} / ${item.B}`).join(", ");
-        html += `<tr><td>${h.date}</td><td>${h.gradeSet}</td><td>${h.mode}</td><td>${h.score}点</td><td>${missedItems}</td></tr>`;
+        html += `<tr><td>${h.date}</td><td>${h.gradeSet}</td><td>${h.mode}</td><td>${h.score}点</td><td>${missedItems || '全問正解'}</td></tr>`;
     });
 
     // Display Karuta history (sorted by time)
